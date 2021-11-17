@@ -254,7 +254,7 @@ def upgrade():
     sa.Column('event_id', sa.String(length=64), nullable=True),
     sa.Column('system', sa.SmallInteger(), nullable=False),
     sa.Column('module', sa.SmallInteger(), nullable=False),
-    sa.Column('phase', sa.SmallInteger(), nullable=True),
+    sa.Column('phase', sa.String(length=64), nullable=True),
     sa.Column('attributes', sa.JSON(), nullable=True),
     sa.Column('codec_error', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('block_id', 'event_idx')
@@ -404,7 +404,7 @@ def upgrade():
     sa.Column('event_id', sa.String(length=64), nullable=True),
     sa.Column('system', sa.SmallInteger(), nullable=False),
     sa.Column('module', sa.SmallInteger(), nullable=False),
-    sa.Column('phase', sa.SmallInteger(), nullable=True),
+    sa.Column('phase', sa.String(length=64), nullable=True),
     sa.Column('attributes', sa.JSON(), nullable=True),
     sa.Column('codec_error', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('block_hash', 'event_idx')

@@ -45,8 +45,13 @@ class LogBlockProcessor(BlockProcessor):
         self.block.count_log = len(self.block.logs)
 
         for idx, log_data in enumerate(self.block.logs):
+            # fixme
+            print("log_data:", log_data, type(log_data))
+
             log_digest = LogDigest(ScaleBytes(log_data))
-            log_digest.decode()
+            # log_digest = log_data.decode()
+
+            print("log_digest:", log_digest, type(log_digest))
 
             log = Log(
                 block_id=self.block.id,
@@ -66,6 +71,7 @@ class LogBlockProcessor(BlockProcessor):
                     self.block.slot_number = log.data['value']['data']['slotNumber']
 
             log.save(db_session)
+        # pass
 
     def accumulation_revert(self, db_session):
         for item in Log.query(db_session).filter_by(block_id=self.block.id):

@@ -21,6 +21,8 @@
 
 import dateutil.parser
 import pytz
+import time
+import datetime
 
 from app import settings
 from app.models.data import IdentityAudit, Account
@@ -33,12 +35,18 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
     call_id = 'set'
 
     def accumulation_hook(self, db_session):
-
+        pass  # todo
         if self.extrinsic.success:
+            # print("extrinsic8888888888888:", self.extrinsic.)
             # Store block date time related fields
             for param in self.extrinsic.params:
+                print("param:",param)
+                print("value:", param.get('value'))
+                # fixme
+                print(str(datetime.datetime.fromtimestamp(int(param.get('value') / 1000))))
+                # print("resulr:", dateutil.parser.parse(str(int(param.get('value') / 1000))).replace(tzinfo=pytz.UTC))
                 if param.get('name') == 'now':
-                    self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
+                    self.block.set_datetime(dateutil.parser.parse(str(datetime.datetime.fromtimestamp(int(param.get('value') / 1000)))).replace(tzinfo=pytz.UTC))
 
 
 class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):

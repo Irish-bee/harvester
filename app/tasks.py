@@ -210,6 +210,7 @@ def rebuilding_search_index(self, search_index_id=None, truncate=False):
 @app.task(base=BaseTask, bind=True)
 def start_harvester(self, check_gaps=False):
 
+    print("settings.SUBSTRATE_RPC_URL:, ", SUBSTRATE_RPC_URL)
     substrate = SubstrateInterface(
         url=SUBSTRATE_RPC_URL,
         type_registry_preset=settings.TYPE_REGISTRY,

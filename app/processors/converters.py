@@ -72,7 +72,7 @@ class PolkascanHarvesterService(BaseService):
             custom_type_registry = load_type_registry_file(type_registry_file)
         else:
             custom_type_registry = None
-
+        print("settings.SUBSTRATE_RPC_URL:", settings.SUBSTRATE_RPC_URL)
         self.substrate = SubstrateInterface(
             url=settings.SUBSTRATE_RPC_URL,
             type_registry=custom_type_registry,
@@ -546,37 +546,48 @@ class PolkascanHarvesterService(BaseService):
             # events_decoder = self.substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
             #  fixme
             events = self.substrate.get_events(block_hash)
+            new_events = []
             # Revert back to current runtime
             RuntimeConfiguration().set_active_spec_version_id(block.spec_version_id)
 
             event_idx = 0
-
+            print("events:", events)
+            # fixme 这里是对的
             for event in events:
-                print("event", type(event), event)
-                print("event.value['phase']", event.value['phase'])
-                # event["event"]['module_id'] = event["event"]['module_id'].lower()
+                try:
+                    print("88888888888888888")
+                    print(event.value)
+                    # print("args:", event.args)
+                    print("****************************")
+                    print("event", type(event), event)
+                    print("event.value['phase']", event.value['phase'])
+                    print("---------------------------------------------------------------------")
+                    # event["event"]['module_id'] = event["event"]['module_id'].lower()
 
-                model = Event(
-                    block_id=block_id,
-                    event_idx=event_idx,
-                    # fixme 本来的定义是一个数值
-                    phase=event.value["phase"],
-                    extrinsic_idx=event.value['extrinsic_idx'],
-                    type=event.value["event"]['event_index'],
-                    spec_version_id=parent_spec_version,
-                    module_id=event.value['module_id'],
-                    event_id=event.value["event"]['event_id'],
-                    system=int(event.value['module_id'] == 'system'),
-                    module=int(event.value['module_id'] != 'system'),
-                    attributes=event.value['attributes'],
-                    codec_error=False
-                )
+                    model = Event(
+                        block_id=block_id,
+                        event_idx=event_idx,
+                        # fixme 本来的定义是一个数值
+                        phase=event.value["phase"],
+                        extrinsic_idx=event.value['extrinsic_idx'],
+                        type=event.value["event"]['event_index'],
+                        spec_version_id=parent_spec_version,
+                        module_id=event.value['module_id'],
+                        event_id=event.value["event"]['event_id'],
+                        system=int(event.value['module_id'] == 'system'),
+                        module=int(event.value['module_id'] != 'system'),
+                        attributes=event.value['attributes'],
+                        codec_error=False
+                    )
+                except Exception as e:
+                    print(e)
+                    continue
 
                 # Process event
 
-                if event.value['phase'] == 0:
+                if event.value['phase'] == "ApplyExtrinsic":
                     block.count_events_extrinsic += 1
-                elif event.value['phase'] == 1:
+                elif event.value['phase'] == "Finalization":
                     block.count_events_finalization += 1
 
                 if event.value['module_id'] == 'system':
@@ -597,7 +608,7 @@ class PolkascanHarvesterService(BaseService):
 
                 model.save(self.db_session)
 
-                events.append(model)
+                new_events.append(model)
 
                 event_idx += 1
 
@@ -608,55 +619,67 @@ class PolkascanHarvesterService(BaseService):
 
         # === Extract extrinsics from block ====
 
-        extrinsics_data = json_block['block'].pop('extrinsics')
+        # extrinsics_data = json_block['block'].pop('extrinsics')
+
+        # extrinsics_data = json_block['extrinsics']
+        extrinsics_data = json_block.pop('extrinsics')
+        # print("json_block:", json_block)
+        print("extrinsics_data:", extrinsics_data)
 
         block.count_extrinsics = len(extrinsics_data)
 
-        extrinsic_idx = 0
+        # extrinsic_idx = 0
 
         extrinsics = []
-
+        extrinsic_idx = 0
+        # print("extrinsics_data:", extrinsics_data)
         for extrinsic in extrinsics_data:
-
-            extrinsics_decoder = ExtrinsicsDecoder(
-                data=ScaleBytes(extrinsic),
-                metadata=self.metadata_store[parent_spec_version]
-            )
-
-            extrinsic_data = extrinsics_decoder.decode()
-
-            # Lookup result of extrinsic
-            extrinsic_success = extrinsic_success_idx.get(extrinsic_idx, False)
-
-            if extrinsics_decoder.era:
-                era = extrinsics_decoder.era.raw_value
-            else:
-                era = None
+            print("extrinsic:", extrinsic, type(extrinsic))
+            print("\n")
+            print("block_id:", block_id)
+            if extrinsic["call"]["call_module"] == "Balances":
+                print("6666666666666666666:", extrinsics)
+        #     extrinsics_decoder = ExtrinsicsDecoder(
+        #         data=ScaleBytes(extrinsic),
+        #         metadata=self.metadata_store[parent_spec_version]
+        #     )
+        #
+        #     extrinsic_data = extrinsics_decoder.decode()
+        #
+        #     # Lookup result of extrinsic
+        #     extrinsic_success = extrinsic_success_idx.get(extrinsic_idx, False)
+        #
+        #     if extrinsics_decoder.era:
+        #         era = extrinsics_decoder.era.raw_value
+        #     else:
+        #         era = None
+        #
+            # def success_id():
 
             model = Extrinsic(
                 block_id=block_id,
-                extrinsic_idx=extrinsic_idx,
-                extrinsic_hash=extrinsics_decoder.extrinsic_hash,
-                extrinsic_length=extrinsic_data.get('extrinsic_length'),
-                extrinsic_version=extrinsic_data.get('version_info'),
-                signed=extrinsics_decoder.contains_transaction,
-                unsigned=not extrinsics_decoder.contains_transaction,
-                signedby_address=bool(extrinsics_decoder.contains_transaction and extrinsic_data.get('account_id')),
-                signedby_index=bool(extrinsics_decoder.contains_transaction and extrinsic_data.get('account_index')),
-                address_length=extrinsic_data.get('account_length'),
-                address=extrinsic_data.get('account_id'),
-                account_index=extrinsic_data.get('account_index'),
-                account_idx=extrinsic_data.get('account_idx'),
-                signature=extrinsic_data.get('signature'),
-                nonce=extrinsic_data.get('nonce'),
-                era=era,
-                call=extrinsic_data.get('call_code'),
-                module_id=extrinsic_data.get('call_module'),
-                call_id=extrinsic_data.get('call_function'),
-                params=extrinsic_data.get('params'),
+                extrinsic_idx=extrinsic_idx,  # todo
+                extrinsic_hash=extrinsic.value["extrinsic_hash"],
+                extrinsic_length=extrinsic.value["extrinsic_length"],
+                extrinsic_version= None,  # todo
+                signed= bool(extrinsic.value["extrinsic_hash"] != None),
+                unsigned= bool(extrinsic.value["extrinsic_hash"] == None),
+                signedby_address=bool(extrinsic.value["extrinsic_hash"]),
+                signedby_index= 0,
+                address_length=len(extrinsic.value["address"]) if extrinsic.value.get("address") != None else 0,
+                address=extrinsic.value["address"] if extrinsic.value.get("address") != None else None,
+                account_index=None, # todo
+                account_idx= 0,
+                signature=extrinsic.value["signature"] if extrinsic.value.get("signature") != None else None,
+                nonce=extrinsic.value["nonce"] if extrinsic.value.get("nonce") != None else 0,
+                era=extrinsic.value["era"] if extrinsic.value.get("era") != None else None,
+                call= None,
+                module_id=extrinsic.value["call"]["call_module"],
+                call_id=extrinsic.value["call"]["call_function"],
+                params=extrinsic.value["call"]["call_args"],  # 这个对了
                 spec_version_id=parent_spec_version,
-                success=int(extrinsic_success),
-                error=int(not extrinsic_success),
+                success=1,
+                error=0,
                 codec_error=False
             )
             model.save(self.db_session)
@@ -666,7 +689,7 @@ class PolkascanHarvesterService(BaseService):
             extrinsic_idx += 1
 
             # Process extrinsic
-            if extrinsics_decoder.contains_transaction:
+            if extrinsic.value["extrinsic_hash"] != None:
                 block.count_extrinsics_signed += 1
 
                 if model.signedby_address:
@@ -693,7 +716,10 @@ class PolkascanHarvesterService(BaseService):
                 extrinsic_processor.process_search_index(self.db_session)
 
         # Process event processors
-        for event in events:
+        for event in new_events:
+            print("----------------------------------------")
+            print("event111111111111111111111111:", event)
+            print(event.event_id)
             extrinsic = None
             if event.extrinsic_idx is not None:
                 try:
